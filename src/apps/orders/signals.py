@@ -17,7 +17,7 @@
 #         for item in instance.products.select_related('product'):
 #             products.append({
 #                 'id': item.product.id if item.product else None,
-#                 'title': item.product.title if item.product else 'Item deleted',
+#                 'name': item.product.name if item.product else 'Item deleted',
 #                 'quantity': item.quantity
 #             })
 #

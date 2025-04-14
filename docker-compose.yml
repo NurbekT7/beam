@@ -1,0 +1,71 @@
+version: '3.7'
+
+services:
+  redis:
+    container_name: redis
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+  web:
+    container_name: web
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    command: "gunicorn --reload core.wsgi:application --bind 0.0.0.0:8010"
+    volumes:
+      - ./src:/home/app/web/
+      - static_volume:/home/app/web/staticfiles
+      - media_volume:/home/app/web/media
+    expose:
+      - 8010
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - .env
+    user: "${UID}:${GID}"
+    depends_on:
+      - db
+
+  nginx:
+    container_name: nginx
+    build:
+      context: nginx/
+    volumes:
+      - ./src:/home/app/web/
+      - static_volume:/home/app/web/staticfiles
+      - media_volume:/home/app/web/media
+    ports:
+      - "80:80"
+    depends_on:
+      - web
+
+  daphne:
+    container_name: daphne
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    command: daphne -b 0.0.0.0 -p 8011  core.asgi:application --verbosity 3
+    volumes:
+      - static_volume:/home/app/web/staticfiles
+      - media_volume:/home/app/web/media
+  #    extra_hosts:
+  #      - "host.docker.internal:host-gateway"
+    env_file:
+      - .env
+
+
+  db:
+    image: postgres:15.1-alpine
+    container_name: db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=nurbek
+      - POSTGRES_PASSWORD=Fl39@dn3poO
+      - POSTGRES_DB=beamshop
+
+
+volumes:
+  static_volume:
+  media_volume:
+  postgres_data:

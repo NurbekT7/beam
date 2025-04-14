@@ -1,0 +1,59 @@
+###########
+# BUILDER #
+###########
+
+FROM python:3.8-slim-buster as builder
+
+WORKDIR /usr/src/app
+
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+RUN apt-get update \
+  && apt-get install -y gcc \
+  && apt-get clean
+
+COPY ./requirements.txt .
+RUN pip install --upgrade pip
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /usr/src/app/wheels -r requirements.txt
+
+
+#########
+# FINAL #
+#########
+
+FROM python:3.8-slim-buster
+
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+RUN apt-get update \
+  && apt-get install -y netcat \
+  && apt-get clean
+
+RUN adduser --disabled-password --gecos "" --home /home/app appuser
+
+ENV HOME=/home/app
+ENV APP_HOME=/home/app/web
+WORKDIR $APP_HOME
+
+RUN mkdir -p $APP_HOME/staticfiles $APP_HOME/media
+RUN chown -R appuser:appuser $HOME
+
+COPY --from=builder /usr/src/app/wheels /wheels
+COPY --from=builder /usr/src/app/requirements.txt .
+
+RUN pip install --upgrade pip
+RUN pip install --no-cache /wheels/*
+
+COPY ./src $APP_HOME
+COPY ./src/entrypoint.sh $APP_HOME
+
+RUN chmod +x /home/app/web/entrypoint.sh
+RUN chmod +x /home/app/web/manage.py
+
+RUN chown -R appuser:appuser /home/app
+
+USER appuser
+
+ENTRYPOINT ["/home/app/web/entrypoint.sh"]
